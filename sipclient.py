@@ -62,10 +62,10 @@ ADDRESS = (REMOTE_HOST,REMOTE_PORT)
 #VOICE_BRIDGE = "72013"
 AUDIO_SAMPLE_RATE = 8000
 AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
-VIDEO_CODEC_ID = 96
+VIDEO_CODEC_ID = 101
 VIDEO_CODEC_NAME = "H264"
-#VIDEO_ENCODER_NAME = "libx264"
-VIDEO_ENCODER_NAME = "libopenh264"
+VIDEO_ENCODER_NAME = "libx264"
+#VIDEO_ENCODER_NAME = "libopenh264"
 AUDIO_CODEC_ID = 9
 CLIENT_TAG = str(random.randint(10000000,99999999))
 SERVER_TAG = ""
@@ -77,7 +77,8 @@ REMOTE_AUDIO_PORT = 0
 VIDEO_ADDRESS = (REMOTE_HOST,REMOTE_VIDEO_PORT)
 FFMPEG_PATH = "/usr/local/bin/ffmpeg"
 CALLERNAME = "sip-client" #must be url-encoded
-USER_AGENT = "Polycom QDX 6000 (rev 0.6.4)"
+HOSTNAME = os.uname()[1]
+USER_AGENT = "sip-client v0.0.1"
 #INPUT_VIDEO_PATH = "video.mp4"
 VIDEO_RESOLUTION={
     'qvga':'320x240',
@@ -94,10 +95,11 @@ s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 SDP_CONTENT="""v=0\r
 o="""+CALLERNAME+""" 0 0 IN IP4 """+LOCAL_HOST+"""\r
 s=Session SIP/SDP\r
-c=IN IP4 """+LOCAL_HOST+"""\r
 t=0 0\r
-a=recvonly\r
-m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+""" 8 18 0 111\r
+a=sendrecv\r
+c=IN IP4 """+LOCAL_HOST+"""\r
+m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP 0 8 """+str(AUDIO_CODEC_ID)+"""\r
+a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""/1\r
 a=rtpmap:0 PCMU/8000/1\r
 a=rtpmap:8 PCMA/8000/1\r
 c=IN IP4 """+LOCAL_HOST+"""\r
@@ -108,11 +110,11 @@ SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""" SIP/2.0\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+str(random.randint(10000000,99999999))+"""\r
 Max-Forwards: 70\r
 To:  <sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""">\r
-From: \""""+CALLERNAME+"""\" <sip:"""+VOICE_BRIDGE+"""@"""+LOCAL_HOST+""">;tag="""+CLIENT_TAG+"""\r
+From: \""""+CALLERNAME+"""\" <sip:"""+HOSTNAME+"""@"""+LOCAL_HOST+""">;tag="""+CLIENT_TAG+"""\r
 Call-ID: """+CALL_ID+"""\r
 CSeq: 1 INVITE\r
 Session-Expires: 3600\r
-Contact: <sip:"""+VOICE_BRIDGE+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""">\r
+Contact: <sip:"""+HOSTNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""">\r
 User-Agent: """+USER_AGENT+"""\r
 Content-Type: application/sdp\r
 Content-Length:""" +str(len(SDP_CONTENT))+"\r\n\r\n"
@@ -245,12 +247,12 @@ def startVideoStream():
             '-profile:v', p[0],
             #'-vf','drawtext=fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf:text=mario:x='+VIDEO_RESOLUTION.split("x")[0]+'-20:y='+VIDEO_RESOLUTION.split("x")[1]+':fontcolor=white:fontsize=30',
             #'-level', p[1],
-            #'-preset','ultrafast',
+            '-preset','ultrafast',
             #'-movflags','frag_keyframe+empty_moov',
-            #'-x264-params','slice-max-size=1024',
+            '-x264-params','slice-max-size=1024',
             #'-ps','1024', #RTP payload size (not needed for h264_mode0)
-            '-slice_mode','dyn',
-            '-max_nal_size','1024',
+            #'-slice_mode','dyn',
+            #'-max_nal_size','1024',
 	    #'-allow_skip_frames','true',
             #'-b:v','100k',
 	    '-r','15',
