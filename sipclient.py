@@ -60,7 +60,7 @@ LOCAL_SDP_PORT= random.randint(5000,5200);
 LOCAL_ADDRESS = (LOCAL_HOST, LOCAL_SDP_PORT)
 ADDRESS = (REMOTE_HOST,REMOTE_PORT)
 #VOICE_BRIDGE = "72013"
-AUDIO_SAMPLE_RATE = 8000
+AUDIO_SAMPLE_RATE = 16000
 AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
 VIDEO_CODEC_ID = 101
 VIDEO_CODEC_NAME = "H264"
@@ -98,10 +98,8 @@ s=Session SIP/SDP\r
 t=0 0\r
 a=sendrecv\r
 c=IN IP4 """+LOCAL_HOST+"""\r
-m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP 0 8 """+str(AUDIO_CODEC_ID)+"""\r
+m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""/1\r
-a=rtpmap:0 PCMU/8000/1\r
-a=rtpmap:8 PCMA/8000/1\r
 c=IN IP4 """+LOCAL_HOST+"""\r
 m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000/1\r"""
@@ -190,7 +188,7 @@ s.bind(LOCAL_ADDRESS)
 
 def startAudioStream():
     global p1
-    FFMPEG_AUDIO_CALL = [FFMPEG_PATH,'-re','-i' ,INPUT_VIDEO_PATH,'-vn','-ac', '1', '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),'-ar',str(AUDIO_SAMPLE_RATE*2),'-af','volume=0.5','-f','rtp','-payload_type',str(AUDIO_CODEC_ID),"rtp://"+REMOTE_HOST+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT)]
+    FFMPEG_AUDIO_CALL = [FFMPEG_PATH,'-re','-i' ,INPUT_VIDEO_PATH,'-vn','-ac', '1', '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),'-ar',str(AUDIO_SAMPLE_RATE),'-af','volume=0.5','-f','rtp','-payload_type',str(AUDIO_CODEC_ID),"rtp://"+REMOTE_HOST+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT)]
     p1 = subprocess.Popen(FFMPEG_AUDIO_CALL)
     print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_AUDIO_CALL)
 
