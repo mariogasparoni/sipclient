@@ -64,7 +64,8 @@ AUDIO_SAMPLE_RATE = 16000
 AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
 VIDEO_CODEC_ID = 101
 VIDEO_CODEC_NAME = "H264"
-VIDEO_ENCODER_NAME = "libx264"
+VIDEO_ENCODER_NAME = "copy"
+#VIDEO_ENCODER_NAME = "libx264"
 #VIDEO_ENCODER_NAME = "libopenh264"
 AUDIO_CODEC_ID = 9
 CLIENT_TAG = str(random.randint(10000000,99999999))
@@ -102,7 +103,8 @@ m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""/1\r
 c=IN IP4 """+LOCAL_HOST+"""\r
 m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID)+"""\r
-a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000/1\r"""
+a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000/1\r
+a=fmtp:"""+str(VIDEO_CODEC_ID)+""" sprop-parameter-sets=Z2QAHqzZQLQ9v/AAgACRAAADAAEAAAMAPI8WLZY=,aOvssiw=; profile-level-id=64001E"""
 
 SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""" SIP/2.0\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+str(random.randint(10000000,99999999))+"""\r
@@ -227,13 +229,13 @@ def startVideoStream():
             '-i',INPUT_VIDEO_PATH,
             #'-i','/home/mario/bbb-stuff/back.png',
             #'-i','/home/mario/bbb-stuff/mconf-videoconf-logo.mp4',
-            '-s',VIDEO_RESOLUTION['hd'], #720x480 made polycom crash
+            #'-s',VIDEO_RESOLUTION['hd'], #720x480 made polycom crash
             #'-filter:v','crop='+VIDEO_RESOLUTION.split("x")[0]+':'+VIDEO_RESOLUTION.split("x")[1]+':0:0',
             #'-force_key_frames','expr:gte(t,n_forced)',
             #'-b:v','1024k',
-            '-maxrate','1024k',
-            '-bufsize','1024k',
-            '-g','1', #GOP
+            #'-maxrate','1024k',
+            #'-bufsize','1024k',
+            #'-g','1', #GOP
             #'-aspect','16:9',
             #'-keyint_min','10',
             #'-q:v','1',
@@ -242,20 +244,20 @@ def startVideoStream():
             #'-loglevel','quiet',
 	    #'-qscale','1',
             '-vcodec',VIDEO_ENCODER_NAME,
-            '-profile:v', p[0],
+            #'-profile:v', p[0],
             #'-vf','drawtext=fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf:text=mario:x='+VIDEO_RESOLUTION.split("x")[0]+'-20:y='+VIDEO_RESOLUTION.split("x")[1]+':fontcolor=white:fontsize=30',
             #'-level', p[1],
-            '-preset','ultrafast',
+            #'-preset','ultrafast',
             #'-movflags','frag_keyframe+empty_moov',
-            '-x264-params','slice-max-size=1024',
+            #'-x264-params','slice-max-size=1024',
             #'-ps','1024', #RTP payload size (not needed for h264_mode0)
             #'-slice_mode','dyn',
             #'-max_nal_size','1024',
 	    #'-allow_skip_frames','true',
             #'-b:v','100k',
-	    '-r','15',
+	    #'-r','15',
             '-an',
-            '-rtpflags','h264_mode0',
+            #'-rtpflags','h264_mode0',
             '-f', 'rtp',
             '-payload_type', str(VIDEO_CODEC_ID),
             "rtp://"+REMOTE_HOST+":"+str(REMOTE_VIDEO_PORT)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
