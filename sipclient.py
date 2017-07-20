@@ -51,18 +51,18 @@ signal.signal(signal.SIGINT, signal_handler) #ctrl-c (-2)
 signal.signal(signal.SIGTERM, signal_handler)
 
 BUFFER_SIZE = pow(2,12)
-#NETWORK_INTERFACE = 'eth0'
-NETWORK_INTERFACE = 'br0'
+NETWORK_INTERFACE = 'eth0'
+#NETWORK_INTERFACE = 'br0'
 #NETWORK_INTERFACE = 'wlan0'
 #NETWORK_INTERFACE = 'p5p1'
 LOCAL_HOST = get_ip_address(NETWORK_INTERFACE)
-LOCAL_SDP_PORT= random.randint(5000,5200);
+LOCAL_SDP_PORT= random.randint(5000,6000);
 LOCAL_ADDRESS = (LOCAL_HOST, LOCAL_SDP_PORT)
 ADDRESS = (REMOTE_HOST,REMOTE_PORT)
 #VOICE_BRIDGE = "72013"
 AUDIO_SAMPLE_RATE = 16000
 AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
-VIDEO_CODEC_ID = 101
+VIDEO_CODEC_ID = 96
 VIDEO_CODEC_NAME = "H264"
 VIDEO_ENCODER_NAME = "copy"
 #VIDEO_ENCODER_NAME = "libx264"
@@ -71,9 +71,9 @@ AUDIO_CODEC_ID = 9
 CLIENT_TAG = str(random.randint(10000000,99999999))
 SERVER_TAG = ""
 CALL_ID = str(random.randint(10000000,99999999))+"@"+LOCAL_HOST
-LOCAL_VIDEO_PORT = random.randint(20000,21000);
+LOCAL_VIDEO_PORT = random.randint(20000,30000);
 REMOTE_VIDEO_PORT = 0
-LOCAL_AUDIO_PORT = random.randint(5300,6000);
+LOCAL_AUDIO_PORT = random.randint(7000,17000);
 REMOTE_AUDIO_PORT = 0
 VIDEO_ADDRESS = (REMOTE_HOST,REMOTE_VIDEO_PORT)
 FFMPEG_PATH = "/usr/local/bin/ffmpeg"
@@ -101,20 +101,19 @@ a=sendrecv\r
 c=IN IP4 """+LOCAL_HOST+"""\r
 m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""/1\r
-c=IN IP4 """+LOCAL_HOST+"""\r
 m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID)+"""\r
-a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000/1\r
+a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000\r
 a=fmtp:"""+str(VIDEO_CODEC_ID)+""" sprop-parameter-sets=Z2QAHqzZQLQ9v/AAgACRAAADAAEAAAMAPI8WLZY=,aOvssiw=; profile-level-id=64001E"""
 
 SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""" SIP/2.0\r
+CSeq: 1 INVITE\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+str(random.randint(10000000,99999999))+"""\r
 Max-Forwards: 70\r
-To:  <sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""">\r
+To: <sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""">\r
 From: \""""+CALLERNAME+"""\" <sip:"""+HOSTNAME+"""@"""+LOCAL_HOST+""">;tag="""+CLIENT_TAG+"""\r
 Call-ID: """+CALL_ID+"""\r
-CSeq: 1 INVITE\r
-Session-Expires: 3600\r
 Contact: <sip:"""+HOSTNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""">\r
+Allow: INVITE,ACK,OPTIONS,BYE,CANCEL,SUBSCRIBE,NOTIFY,REFER,MESSAGE,INFO,PING,PRACK\r
 User-Agent: """+USER_AGENT+"""\r
 Content-Type: application/sdp\r
 Content-Length:""" +str(len(SDP_CONTENT))+"\r\n\r\n"
@@ -187,14 +186,43 @@ Content-Length: 0\r\n\r\n"""
 BUFFER = bytearray(SDP_MESSAGE_INVITE)
 s.bind(LOCAL_ADDRESS)
 
+def generateConcatInputFile(input_path):
+    tempPath = '/tmp'
+    fileName = 'kurentoclient'
+    fileSuffix = str(int(time.time())) + '.tmp'
+    fullPath = tempPath + '/' + fileName + '_' + fileSuffix
+    data = ''
+    for i in range(6 * 60 *24):
+        data += 'file ' + input_path + '\n'
 
-def startAudioStream():
+    print '[DEBUG] generating concat file ' + fullPath
+    with open(fullPath,'w') as concatFile:
+        concatFile.write(data)
+    concatFile.close()
+
+    return fullPath
+
+def startAudioStream(inputPath):
     global p1
-    FFMPEG_AUDIO_CALL = [FFMPEG_PATH,'-re','-i' ,INPUT_VIDEO_PATH,'-vn','-ac', '1', '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),'-ar',str(AUDIO_SAMPLE_RATE),'-af','volume=0.5','-f','rtp','-payload_type',str(AUDIO_CODEC_ID),"rtp://"+REMOTE_HOST+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT)]
+
+    FFMPEG_AUDIO_CALL = [
+            FFMPEG_PATH,
+            '-f','concat',
+            '-re',
+            '-i' ,inputPath,
+            '-vn',
+            '-ac', '1',
+            '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),
+            '-ar',str(AUDIO_SAMPLE_RATE),
+            '-af','volume=0.5',
+            '-f','rtp',
+            '-payload_type',str(AUDIO_CODEC_ID),"rtp://"+REMOTE_HOST+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT),
+            '-loglevel','quiet'
+        ]
     p1 = subprocess.Popen(FFMPEG_AUDIO_CALL)
     print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_AUDIO_CALL)
 
-def startVideoStream():
+def startVideoStream(inputPath):
     global p2
 
     #CIF
@@ -224,9 +252,10 @@ def startVideoStream():
             FFMPEG_PATH,
             #'-ignore_loop','0', #for images
             #'-loop','1',
+            '-f','concat',
             '-re',
             #'-r','15',
-            '-i',INPUT_VIDEO_PATH,
+            '-i',inputPath,
             #'-i','/home/mario/bbb-stuff/back.png',
             #'-i','/home/mario/bbb-stuff/mconf-videoconf-logo.mp4',
             #'-s',VIDEO_RESOLUTION['hd'], #720x480 made polycom crash
@@ -241,8 +270,8 @@ def startVideoStream():
             #'-q:v','1',
             #'-crf','40',
             #'-loglevel','verbose',
-            #'-loglevel','quiet',
-	    #'-qscale','1',
+            '-loglevel','quiet',
+	        #'-qscale','1',
             '-vcodec',VIDEO_ENCODER_NAME,
             #'-profile:v', p[0],
             #'-vf','drawtext=fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf:text=mario:x='+VIDEO_RESOLUTION.split("x")[0]+'-20:y='+VIDEO_RESOLUTION.split("x")[1]+':fontcolor=white:fontsize=30',
@@ -253,9 +282,9 @@ def startVideoStream():
             #'-ps','1024', #RTP payload size (not needed for h264_mode0)
             #'-slice_mode','dyn',
             #'-max_nal_size','1024',
-	    #'-allow_skip_frames','true',
+            #'-allow_skip_frames','true',
             #'-b:v','100k',
-	    #'-r','15',
+            #'-r','15',
             '-an',
             #'-rtpflags','h264_mode0',
             '-f', 'rtp',
@@ -289,8 +318,9 @@ while True:
             BUFFER = bytearray(SDP_MESSAGE_ACK)
             s.sendto(BUFFER,ADDRESS)
 
-            startAudioStream()
-            startVideoStream()
+            inputPath = generateConcatInputFile(INPUT_VIDEO_PATH)
+            startAudioStream(inputPath)
+            startVideoStream(inputPath)
 
         time.sleep(0.1)
     except socket.error:
