@@ -9,9 +9,9 @@ import signal
 import struct
 import subprocess
 import time
+import hashlib
 from threading import Thread
 from multiprocessing import Process
-
 
 
 if len(sys.argv) < 3:
@@ -23,6 +23,16 @@ else:
     VOICE_BRIDGE = sys.argv[3] if sys.argv[3].isdigit() else "72013"
     INPUT_VIDEO_PATH = sys.argv[4] if sys.argv[4] else "video.mp4"
 
+MD5_HASH = hashlib.md5()
+def get_hex_digest(size):
+    MD5_HASH.update('fEeD');
+    return MD5_HASH.hexdigest()[:size]
+
+def generate_transaction_branch():
+    return 'z9hG4bK' + get_hex_digest(16)
+
+def generate_call_id(hostname):
+    return get_hex_digest(32) + '@' + hostname
 
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -55,6 +65,8 @@ NETWORK_INTERFACE = 'eth0'
 #NETWORK_INTERFACE = 'br0'
 #NETWORK_INTERFACE = 'wlan0'
 #NETWORK_INTERFACE = 'p5p1'
+HOSTNAME = os.uname()[1]
+USER_AGENT = "sip-clientv0.0.1"
 LOCAL_HOST = get_ip_address(NETWORK_INTERFACE)
 LOCAL_SDP_PORT= random.randint(5000,6000);
 LOCAL_ADDRESS = (LOCAL_HOST, LOCAL_SDP_PORT)
@@ -68,9 +80,9 @@ VIDEO_ENCODER_NAME = "copy"
 #VIDEO_ENCODER_NAME = "libx264"
 #VIDEO_ENCODER_NAME = "libopenh264"
 AUDIO_CODEC_ID = 9
-CLIENT_TAG = str(random.randint(10000000,99999999))
+CLIENT_TAG = get_hex_digest(16)
 SERVER_TAG = ""
-CALL_ID = str(random.randint(10000000,99999999))+"@"+LOCAL_HOST
+CALL_ID = generate_call_id(HOSTNAME)
 LOCAL_VIDEO_PORT = random.randint(20000,30000);
 REMOTE_VIDEO_PORT = 0
 LOCAL_AUDIO_PORT = random.randint(7000,17000);
@@ -78,8 +90,6 @@ REMOTE_AUDIO_PORT = 0
 VIDEO_ADDRESS = (REMOTE_HOST,REMOTE_VIDEO_PORT)
 FFMPEG_PATH = "/usr/local/bin/ffmpeg"
 CALLERNAME = "sip-client" #must be url-encoded
-HOSTNAME = os.uname()[1]
-USER_AGENT = "sip-client v0.0.1"
 #INPUT_VIDEO_PATH = "video.mp4"
 VIDEO_RESOLUTION={
     'qvga':'320x240',
@@ -95,28 +105,28 @@ s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 #INVITE MESSAGE#
 SDP_CONTENT="""v=0\r
 o="""+CALLERNAME+""" 0 0 IN IP4 """+LOCAL_HOST+"""\r
-s=Session SIP/SDP\r
+s=-\r
 t=0 0\r
-a=sendrecv\r
+a=sendrecv
 c=IN IP4 """+LOCAL_HOST+"""\r
 m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
-a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""/1\r
-m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID)+"""\r
+a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""\r
+m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID) + """\r
 a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000\r
-a=fmtp:"""+str(VIDEO_CODEC_ID)+""" sprop-parameter-sets=Z2QAHqzZQLQ9v/AAgACRAAADAAEAAAMAPI8WLZY=,aOvssiw=; profile-level-id=64001E"""
+a=fmtp:"""+str(VIDEO_CODEC_ID)+""" sprop-parameter-sets=Z0LAH9kAUAW7ARAAAAMAEAAAAwMg8YMkgA==,aMuDyyA=; profile-level-id=42C01F"""
 
 SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""" SIP/2.0\r
+Call-ID: """+CALL_ID+"""\r
 CSeq: 1 INVITE\r
-Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+str(random.randint(10000000,99999999))+"""\r
+Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+ generate_transaction_branch() +"""\r
 Max-Forwards: 70\r
 To: <sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""">\r
-From: \""""+CALLERNAME+"""\" <sip:"""+HOSTNAME+"""@"""+LOCAL_HOST+""">;tag="""+CLIENT_TAG+"""\r
-Call-ID: """+CALL_ID+"""\r
-Contact: <sip:"""+HOSTNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""">\r
+From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+CLIENT_TAG+"""\r
+Contact: \""""+ CALLERNAME +"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";transport=udp>\r
 Allow: INVITE,ACK,OPTIONS,BYE,CANCEL,SUBSCRIBE,NOTIFY,REFER,MESSAGE,INFO,PING,PRACK\r
 User-Agent: """+USER_AGENT+"""\r
 Content-Type: application/sdp\r
-Content-Length:""" +str(len(SDP_CONTENT))+"\r\n\r\n"
+Content-Length: """ +str(len(SDP_CONTENT))+"\r\n\r\n"
 
 SDP_MESSAGE_INVITE=SDP_HEADER+SDP_CONTENT
 print "SDP Message: ", SDP_MESSAGE_INVITE
@@ -168,7 +178,7 @@ Content-Length: 0\r\n\r\n"""
 
 #Bye Message and handler
 def sendByeMessage(client_tag,server_tag,socket):
-    BYE_BRANCH = str(random.randint(10000000,99999999))
+    BYE_BRANCH = generate_transaction_branch()
     SDP_MESSAGE_BYE = """BYE sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""":"""+str(REMOTE_PORT)+""";transport=udp SIP/2.0\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";rport;branch="""+BYE_BRANCH+"""\r
 Max-Forwards: 70\r
