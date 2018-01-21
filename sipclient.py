@@ -135,6 +135,7 @@ def getTransactionFields(message):
     tag = ""
     branch = ""
     callid = ""
+    remote_host = ""
     remote_video_port = ""
     remote_audio_port = ""
 
@@ -148,12 +149,14 @@ def getTransactionFields(message):
                 branch=line.split(";",1)[1].replace("branch=","")
             elif "Call-ID" in line:
                 callid=line.split(":",1)[1].strip()
+            elif "c=IN" in line:
+                remote_host=line.split()[2].strip()
             elif "video" in line:
                 remote_video_port=line.split()[1].strip()
             elif "audio" in line:
                 remote_audio_port=line.split()[1].strip()
 
-    return remote_tag,branch,callid,int(remote_video_port),int(remote_audio_port)
+    return remote_tag,branch,callid,remote_host,int(remote_video_port),int(remote_audio_port)
 
 
 def messageOk(str):
@@ -212,13 +215,14 @@ def generateConcatInputFile(input_path):
 
     return fullPath
 
-def startAudioStream(inputPath):
+def startAudioStream(inputPath,remoteHost, remotePort):
     global p1
 
     FFMPEG_AUDIO_CALL = [
             FFMPEG_PATH,
             '-f','concat',
             '-re',
+            '-safe','0',
             '-i' ,inputPath,
             '-vn',
             '-ac', '1',
@@ -232,7 +236,7 @@ def startAudioStream(inputPath):
     p1 = subprocess.Popen(FFMPEG_AUDIO_CALL)
     print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_AUDIO_CALL)
 
-def startVideoStream(inputPath):
+def startVideoStream(inputPath, remoteHost, remotePort):
     global p2
 
     #CIF
@@ -265,6 +269,7 @@ def startVideoStream(inputPath):
             '-f','concat',
             '-re',
             #'-r','15',
+            '-safe','0',
             '-i',inputPath,
             #'-i','/home/mario/bbb-stuff/back.png',
             #'-i','/home/mario/bbb-stuff/mconf-videoconf-logo.mp4',
@@ -322,15 +327,15 @@ while True:
         #raw_input("press a key to continue...")
 
         if messageOk(data):
-            SERVER_TAG,ACK_BRANCH , CALLID, REMOTE_VIDEO_PORT , REMOTE_AUDIO_PORT = getTransactionFields(data)
+            SERVER_TAG,ACK_BRANCH , CALLID, REMOTE_HOST, REMOTE_VIDEO_PORT , REMOTE_AUDIO_PORT = getTransactionFields(data)
             SDP_MESSAGE_ACK = createAckMessage(CLIENT_TAG, SERVER_TAG,ACK_BRANCH, CALLID)
             print "Sending Message: ", SDP_MESSAGE_ACK
             BUFFER = bytearray(SDP_MESSAGE_ACK)
             s.sendto(BUFFER,ADDRESS)
 
             inputPath = generateConcatInputFile(INPUT_VIDEO_PATH)
-            startAudioStream(inputPath)
-            startVideoStream(inputPath)
+            startAudioStream(inputPath, REMOTE_HOST, REMOTE_AUDIO_PORT)
+            startVideoStream(inputPath, REMOTE_HOST, REMOTE_VIDEO_PORT)
 
         time.sleep(0.1)
     except socket.error:
