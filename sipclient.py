@@ -9,6 +9,7 @@ import signal
 import struct
 import subprocess
 import time
+from datetime import datetime
 import hashlib
 from threading import Thread
 from multiprocessing import Process
@@ -29,7 +30,7 @@ else:
 
 MD5_HASH = hashlib.md5()
 def get_hex_digest(size):
-    MD5_HASH.update('fEeD');
+    MD5_HASH.update('fEeD' + str(datetime.now().microsecond));
     return MD5_HASH.hexdigest()[:size]
 
 def generate_transaction_branch():
