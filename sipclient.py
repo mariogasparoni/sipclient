@@ -18,7 +18,7 @@ if len(sys.argv) < 3:
     print "usage: sdpclient HOST PORT VOICEBRIDGE(optional) INPUT_VIDEO_PATH(optional)"
     sys.exit()
 else:
-    REMOTE_HOST = sys.argv[1]
+    HOST = sys.argv[1]
     REMOTE_PORT = int(sys.argv[2])
     VOICE_BRIDGE = sys.argv[3] if sys.argv[3].isdigit() else "72013"
     INPUT_VIDEO_PATH = sys.argv[4] if sys.argv[4] else "video.mp4"
@@ -68,18 +68,21 @@ NETWORK_INTERFACE = 'eth0'
 HOSTNAME = os.uname()[1]
 USER_AGENT = "sip-clientv0.0.1"
 LOCAL_HOST = get_ip_address(NETWORK_INTERFACE)
-LOCAL_SDP_PORT= random.randint(5000,6000);
+LOCAL_SDP_PORT= random.randint(5065,6000);
 LOCAL_ADDRESS = (LOCAL_HOST, LOCAL_SDP_PORT)
-ADDRESS = (REMOTE_HOST,REMOTE_PORT)
+ADDRESS = (HOST,REMOTE_PORT)
 #VOICE_BRIDGE = "72013"
-AUDIO_SAMPLE_RATE = 16000
-AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
+#AUDIO_SAMPLE_RATE = 16000
+AUDIO_SAMPLE_RATE = 48000
+#AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
+AUDIO_CODEC_NAME = "OPUS/"+str(AUDIO_SAMPLE_RATE)+"/2"
 VIDEO_CODEC_ID = 96
 VIDEO_CODEC_NAME = "H264"
 VIDEO_ENCODER_NAME = "copy"
 #VIDEO_ENCODER_NAME = "libx264"
 #VIDEO_ENCODER_NAME = "libopenh264"
-AUDIO_CODEC_ID = 9
+#AUDIO_CODEC_ID = 9
+AUDIO_CODEC_ID = 98
 CLIENT_TAG = get_hex_digest(16)
 SERVER_TAG = ""
 CALL_ID = generate_call_id(HOSTNAME)
@@ -87,8 +90,7 @@ LOCAL_VIDEO_PORT = random.randint(20000,30000);
 REMOTE_VIDEO_PORT = 0
 LOCAL_AUDIO_PORT = random.randint(7000,17000);
 REMOTE_AUDIO_PORT = 0
-VIDEO_ADDRESS = (REMOTE_HOST,REMOTE_VIDEO_PORT)
-FFMPEG_PATH = "/usr/local/bin/ffmpeg"
+FFMPEG_PATH = "/usr/bin/ffmpeg"
 CALLERNAME = "sip-client" #must be url-encoded
 #INPUT_VIDEO_PATH = "video.mp4"
 VIDEO_RESOLUTION={
@@ -107,7 +109,7 @@ SDP_CONTENT="""v=0\r
 o="""+CALLERNAME+""" 0 0 IN IP4 """+LOCAL_HOST+"""\r
 s=-\r
 t=0 0\r
-a=sendrecv
+a=sendonly
 c=IN IP4 """+LOCAL_HOST+"""\r
 m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""\r
@@ -115,15 +117,14 @@ m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID) + """\r
 a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000\r
 a=fmtp:"""+str(VIDEO_CODEC_ID)+""" sprop-parameter-sets=Z0LAH9kAUAW7ARAAAAMAEAAAAwMg8YMkgA==,aMuDyyA=; profile-level-id=42C01F"""
 
-SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""" SIP/2.0\r
+SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+HOST+""" SIP/2.0\r
 Call-ID: """+CALL_ID+"""\r
 CSeq: 1 INVITE\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+ generate_transaction_branch() +"""\r
 Max-Forwards: 70\r
-To: <sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""">\r
+To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""">\r
 From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+CLIENT_TAG+"""\r
 Contact: \""""+ CALLERNAME +"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";transport=udp>\r
-Allow: INVITE,ACK,OPTIONS,BYE,CANCEL,SUBSCRIBE,NOTIFY,REFER,MESSAGE,INFO,PING,PRACK\r
 User-Agent: """+USER_AGENT+"""\r
 Content-Type: application/sdp\r
 Content-Length: """ +str(len(SDP_CONTENT))+"\r\n\r\n"
@@ -166,15 +167,14 @@ def messageOk(str):
         return False
 
 def createAckMessage(client_tag,server_tag,transaction_branch, call_id):
-    message = """ACK sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""":"""+str(REMOTE_PORT)+""";transport=udp SIP/2.0\r
-Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";rport;branch="""+transaction_branch+"""\r
-Max-Forwards: 70\r
-To: <sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""">;tag="""+ server_tag +"""\r
-From:  <sip:"""+LOCAL_HOST+"""> ;tag="""+client_tag+"""\r
+    message = """ACK sip:"""+"mcs-sip"+"""@"""+HOST+""":"""+str(REMOTE_PORT)+""";transport=udp SIP/2.0\r
 Call-ID: """+call_id+"""\r
 CSeq: 1 ACK\r
-Contact: <sip:"""+VOICE_BRIDGE+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""">\r
-Expires: 120\r
+Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+transaction_branch+"""\r
+From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+client_tag +"""\r
+To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""":"""+str(REMOTE_PORT)+""">;tag="""+ server_tag +"""\r
+Max-Forwards: 70\r
+Contact: \""""+ CALLERNAME +"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";transport=udp>\r
 User-Agent: """+USER_AGENT+"""\r
 Content-Length: 0\r\n\r\n"""
     return message
@@ -182,16 +182,18 @@ Content-Length: 0\r\n\r\n"""
 #Bye Message and handler
 def sendByeMessage(client_tag,server_tag,socket):
     BYE_BRANCH = generate_transaction_branch()
-    SDP_MESSAGE_BYE = """BYE sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""":"""+str(REMOTE_PORT)+""";transport=udp SIP/2.0\r
-Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";rport;branch="""+BYE_BRANCH+"""\r
+    SDP_MESSAGE_BYE = """BYE sip:"""+VOICE_BRIDGE+"""@"""+HOST+""":"""+str(REMOTE_PORT)+""";transport=udp SIP/2.0\r
+Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+BYE_BRANCH+"""\r
 Max-Forwards: 70\r
-To: <sip:"""+VOICE_BRIDGE+"""@"""+REMOTE_HOST+""">;tag="""+ server_tag +"""\r
-From:  <sip:"""+LOCAL_HOST+"""> ;tag="""+client_tag+"""\r
+To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""">;tag="""+ server_tag +"""\r
+From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+client_tag +"""\r
 Call-ID: """+CALL_ID+"""\r
 CSeq: 2 BYE\r
+Contact: \""""+ CALLERNAME +"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";transport=udp>\r
 User-Agent: """+USER_AGENT+"""\r
 Content-Length: 0\r\n\r\n"""
     BUFFER = bytearray(SDP_MESSAGE_BYE)
+    print "Sending message:\n" + SDP_MESSAGE_BYE
     s.sendto(BUFFER,ADDRESS)
 
 ##
@@ -225,12 +227,12 @@ def startAudioStream(inputPath,remoteHost, remotePort):
             '-safe','0',
             '-i' ,inputPath,
             '-vn',
-            '-ac', '1',
+            '-ac', '2',
             '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),
             '-ar',str(AUDIO_SAMPLE_RATE),
             '-af','volume=0.5',
             '-f','rtp',
-            '-payload_type',str(AUDIO_CODEC_ID),"rtp://"+REMOTE_HOST+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT),
+            '-payload_type',str(AUDIO_CODEC_ID),"rtp://"+remoteHost+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT),
             '-loglevel','quiet'
         ]
     p1 = subprocess.Popen(FFMPEG_AUDIO_CALL)
@@ -304,7 +306,7 @@ def startVideoStream(inputPath, remoteHost, remotePort):
             #'-rtpflags','h264_mode0',
             '-f', 'rtp',
             '-payload_type', str(VIDEO_CODEC_ID),
-            "rtp://"+REMOTE_HOST+":"+str(REMOTE_VIDEO_PORT)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
+            "rtp://"+remoteHost+":"+str(remotePort)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
 
         ]
         p2 = subprocess.Popen(FFMPEG_VIDEO_CALL)
@@ -342,4 +344,3 @@ while True:
     	print "Socket Error: Leaving!"
         s.close()
         sys.exit(1)
-
