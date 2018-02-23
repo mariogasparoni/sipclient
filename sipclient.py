@@ -21,7 +21,11 @@ else:
     HOST = sys.argv[1]
     REMOTE_PORT = int(sys.argv[2])
     VOICE_BRIDGE = sys.argv[3] if sys.argv[3].isdigit() else "72013"
-    INPUT_VIDEO_PATH = sys.argv[4] if sys.argv[4] else "video.mp4"
+
+    if (len(sys.argv) > 4):
+        INPUT_VIDEO_PATH = sys.argv[4] if sys.argv[4] else ""
+    else:
+        INPUT_VIDEO_PATH = ""
 
 MD5_HASH = hashlib.md5()
 def get_hex_digest(size):
@@ -51,9 +55,10 @@ def terminate_process(process):
 def signal_handler(signal, frame):
         global p1,p2,s
         sendByeMessage(CLIENT_TAG,SERVER_TAG,s)
+        if (INPUT_VIDEO_PATH):
+            terminate_process(p1)
+            terminate_process(p2)
         s.close()
-        terminate_process(p1)
-        terminate_process(p2)
         print 'Exiting...'
         sys.exit(0)
 
@@ -335,9 +340,12 @@ while True:
             BUFFER = bytearray(SDP_MESSAGE_ACK)
             s.sendto(BUFFER,ADDRESS)
 
-            inputPath = generateConcatInputFile(INPUT_VIDEO_PATH)
-            startAudioStream(inputPath, REMOTE_HOST, REMOTE_AUDIO_PORT)
-            startVideoStream(inputPath, REMOTE_HOST, REMOTE_VIDEO_PORT)
+            if (INPUT_VIDEO_PATH):
+                inputPath = generateConcatInputFile(INPUT_VIDEO_PATH)
+                startAudioStream(inputPath, REMOTE_HOST, REMOTE_AUDIO_PORT)
+                startVideoStream(inputPath, REMOTE_HOST, REMOTE_VIDEO_PORT)
+            else:
+                print "Calling without media, since no input file was given"
 
         time.sleep(0.1)
     except socket.error:
