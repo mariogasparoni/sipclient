@@ -74,21 +74,22 @@ NETWORK_INTERFACE = 'eth0'
 HOSTNAME = os.uname()[1]
 USER_AGENT = "sip-clientv0.0.1"
 LOCAL_HOST = get_ip_address(NETWORK_INTERFACE)
-LOCAL_SDP_PORT= random.randint(5065,6000);
+LOCAL_SDP_PORT= REMOTE_PORT
 LOCAL_ADDRESS = (LOCAL_HOST, LOCAL_SDP_PORT)
 ADDRESS = (HOST,REMOTE_PORT)
 #VOICE_BRIDGE = "72013"
+AUDIO_SAMPLE_RATE = 8000
 #AUDIO_SAMPLE_RATE = 16000
-AUDIO_SAMPLE_RATE = 48000
-#AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
-AUDIO_CODEC_NAME = "OPUS/"+str(AUDIO_SAMPLE_RATE)+"/2"
+#AUDIO_SAMPLE_RATE = 48000
+AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
+#AUDIO_CODEC_NAME = "OPUS/"+str(AUDIO_SAMPLE_RATE)+"/2"
 VIDEO_CODEC_ID = 96
 VIDEO_CODEC_NAME = "H264"
 VIDEO_ENCODER_NAME = "copy"
 #VIDEO_ENCODER_NAME = "libx264"
 #VIDEO_ENCODER_NAME = "libopenh264"
-#AUDIO_CODEC_ID = 9
-AUDIO_CODEC_ID = 98
+AUDIO_CODEC_ID = 9
+#AUDIO_CODEC_ID = 98
 CLIENT_TAG = get_hex_digest(16)
 SERVER_TAG = ""
 CALL_ID = generate_call_id(HOSTNAME)
@@ -97,6 +98,7 @@ REMOTE_VIDEO_PORT = 0
 LOCAL_AUDIO_PORT = random.randint(7000,17000);
 REMOTE_AUDIO_PORT = 0
 FFMPEG_PATH = "/usr/bin/ffmpeg"
+GST_PATH = "/usr/bin/gst-launch-1.0"
 CALLERNAME = "sip-client" #must be url-encoded
 #INPUT_VIDEO_PATH = "video.mp4"
 VIDEO_RESOLUTION={
@@ -114,22 +116,21 @@ s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 SDP_CONTENT="""v=0\r
 o="""+CALLERNAME+""" 0 0 IN IP4 """+LOCAL_HOST+"""\r
 s=-\r
-t=0 0\r
-a=sendonly
 c=IN IP4 """+LOCAL_HOST+"""\r
+t=0 0\r
 m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""\r
 m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID) + """\r
 a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000\r
-a=fmtp:"""+str(VIDEO_CODEC_ID)+""" sprop-parameter-sets=Z0LAH9kAUAW7ARAAAAMAEAAAAwMg8YMkgA==,aMuDyyA=; profile-level-id=42C01F"""
+a=fmtp:"""+str(VIDEO_CODEC_ID)+""" profile-level-id=42801F"""
 
 SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+HOST+""" SIP/2.0\r
 Call-ID: """+CALL_ID+"""\r
 CSeq: 1 INVITE\r
+From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+CLIENT_TAG+"""\r
+To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""">\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+ generate_transaction_branch() +"""\r
 Max-Forwards: 70\r
-To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""">\r
-From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+CLIENT_TAG+"""\r
 Contact: \""""+ CALLERNAME +"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";transport=udp>\r
 User-Agent: """+USER_AGENT+"""\r
 Content-Type: application/sdp\r
@@ -224,61 +225,111 @@ def generateConcatInputFile(input_path):
     return fullPath
 
 def startAudioStream(inputPath,remoteHost, remotePort):
-    global p1
+#    subprocess.popen()
+     global p1
 
-    FFMPEG_AUDIO_CALL = [
-            FFMPEG_PATH,
-            '-f','concat',
-            '-re',
-            '-safe','0',
-            '-i' ,inputPath,
-            '-vn',
-            '-ac', '2',
-            '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),
-            '-ar',str(AUDIO_SAMPLE_RATE),
-            '-af','volume=0.5',
-            '-f','rtp',
-            '-payload_type',str(AUDIO_CODEC_ID),"rtp://"+remoteHost+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT),
-            '-loglevel','quiet'
-        ]
-    p1 = subprocess.Popen(FFMPEG_AUDIO_CALL)
-    print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_AUDIO_CALL)
+#    FFMPEG_AUDIO_CALL = [
+#            FFMPEG_PATH,
+#            '-f','concat',
+#            '-re',
+#            '-safe','0',
+#            '-i' ,inputPath,
+#            '-vn',
+#            '-ac', '2',
+#            '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),
+#            '-ar',str(AUDIO_SAMPLE_RATE),
+#            '-af','volume=0.5',
+#            '-f','rtp',
+#            '-payload_type',str(AUDIO_CODEC_ID),"rtp://"+remoteHost+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT),
+#            '-loglevel','quiet'
+#        ]
+#    p1 = subprocess.Popen(FFMPEG_AUDIO_CALL)
+#    print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_AUDIO_CALL)
 
 def startVideoStream(inputPath, remoteHost, remotePort):
+
     global p2
+    
+    # gst_command = [
+    #     GST_PATH,
+    #     "videotestsrc",
+    #     "!",
+    #     "x264enc",
+    #     "option-string=slice-max-size=1024",
+    #     "key-int-max=30",
+    #     "!",
+    #     "rtph264pay",
+    #     "!",
+    #     "udpsink",
+    #     "host=" + str(remoteHost),
+    #     "port="+ str(remotePort)
+    # ]
+
+    gst_command = [
+        GST_PATH,
+        "filesrc",
+        "location=bbb.mov",# str(inputPath),
+        "!",
+        "qtdemux",
+        "!",
+        "h264parse",
+        "!",
+        "avdec_h264",
+        "!",
+        "videoconvert",
+        "!",
+        "videoscale",
+        "!",
+        "video/x-raw,width=150,height=150",
+        "!",
+        "x264enc",
+        "option-string=slice-max-size=1024",
+        "key-int-max=30",
+        "!",
+        "rtph264pay",
+        "!",
+        "udpsink",
+        "host=" + str(remoteHost),
+        "port="+ str(remotePort)
+    ]
+
+    print "[DEBUG] Calling gst-launch-1.0 with the command line: ", " ".join(gst_command)
+    p2 = subprocess.Popen(gst_command)
+
+
 
     #CIF
     #resolutions = ['128x96','176x144','256x192','352x240','352x288','704x480','704x576','1408x1152','528x384']
     #QVGA
     #resolutions = ['160x120','320x240','360x240','400x240','640x480']
     #for r in resolutions:
-    profiles = [
-        ('main','1.0'),
-        ('main','1.3'),
-        ('main','1.1'),
-        ('main','1.2'),
-        ('main','1.3'),
-        ('main','2.0'),
-        ('main','2.1'),
-        ('main','2.2'),
-        ('main','3.0'),
-        ('main','3.1'),
-        ('main','3.2'),
-        ('main','4.0'),
-        ('main','4.1'),
-        ('main','4.2')
-    ]
-    profiles=[('baseline','1.3')]
-    for p in profiles:
-        FFMPEG_VIDEO_CALL = [
-            FFMPEG_PATH,
+ #   profiles = [
+ #       ('main','1.0'),
+ #       ('main','1.3'),
+ #       ('main','1.1'),
+ #       ('main','1.2'),
+ #       ('main','1.3'),
+ #       ('main','2.0'),
+ #       ('main','2.1'),
+ #       ('main','2.2'),
+ #       ('main','3.0'),
+ #       ('main','3.1'),
+ #       ('main','3.2'),
+ #       ('main','4.0'),
+ #       ('main','4.1'),
+ #       ('main','4.2')
+ #   ]
+ #   profiles=[('baseline','1.3')]
+ #   for p in profiles:
+ #       FFMPEG_VIDEO_CALL = [
+ #           FFMPEG_PATH,
             #'-ignore_loop','0', #for images
             #'-loop','1',
-            '-f','concat',
-            '-re',
+ #           '-f','concat',
+ #           '-re',
             #'-r','15',
-            '-safe','0',
-            '-i',inputPath,
+ #           '-safe','0',
+ #           '-i',inputPath,
             #'-i','/home/mario/bbb-stuff/back.png',
             #'-i','/home/mario/bbb-stuff/mconf-videoconf-logo.mp4',
             #'-s',VIDEO_RESOLUTION['hd'], #720x480 made polycom crash
@@ -293,9 +344,9 @@ def startVideoStream(inputPath, remoteHost, remotePort):
             #'-q:v','1',
             #'-crf','40',
             #'-loglevel','verbose',
-            '-loglevel','quiet',
+#            '-loglevel','quiet',
 	        #'-qscale','1',
-            '-vcodec',VIDEO_ENCODER_NAME,
+#            '-vcodec',VIDEO_ENCODER_NAME,
             #'-profile:v', p[0],
             #'-vf','drawtext=fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf:text=mario:x='+VIDEO_RESOLUTION.split("x")[0]+'-20:y='+VIDEO_RESOLUTION.split("x")[1]+':fontcolor=white:fontsize=30',
             #'-level', p[1],
@@ -308,15 +359,15 @@ def startVideoStream(inputPath, remoteHost, remotePort):
             #'-allow_skip_frames','true',
             #'-b:v','100k',
             #'-r','15',
-            '-an',
+#            '-an',
             #'-rtpflags','h264_mode0',
-            '-f', 'rtp',
-            '-payload_type', str(VIDEO_CODEC_ID),
-            "rtp://"+remoteHost+":"+str(remotePort)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
+#            '-f', 'rtp',
+#            '-payload_type', str(VIDEO_CODEC_ID),
+#            "rtp://"+remoteHost+":"+str(remotePort)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
 
-        ]
-        p2 = subprocess.Popen(FFMPEG_VIDEO_CALL)
-        print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_VIDEO_CALL)
+#        ]
+#        p2 = subprocess.Popen(FFMPEG_VIDEO_CALL)
+#        print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_VIDEO_CALL)
         #time.sleep(20)
         #p2.terminate()
         #p2.wait()
@@ -342,9 +393,8 @@ while True:
             s.sendto(BUFFER,ADDRESS)
 
             if (INPUT_VIDEO_PATH):
-                inputPath = generateConcatInputFile(INPUT_VIDEO_PATH)
-                startAudioStream(inputPath, REMOTE_HOST, REMOTE_AUDIO_PORT)
-                startVideoStream(inputPath, REMOTE_HOST, REMOTE_VIDEO_PORT)
+                #startAudioStream(INPUT_VIDEO_PATH, REMOTE_HOST, REMOTE_AUDIO_PORT)
+                startVideoStream(INPUT_VIDEO_PATH, REMOTE_HOST, REMOTE_VIDEO_PORT)
             else:
                 print "Calling without media, since no input file was given"
 
