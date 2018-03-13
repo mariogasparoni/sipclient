@@ -114,9 +114,9 @@ s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 SDP_CONTENT="""v=0\r
 o="""+CALLERNAME+""" 0 0 IN IP4 """+LOCAL_HOST+"""\r
 s=-\r
+c=IN IP4 """+LOCAL_HOST+"""\r
 t=0 0\r
 a=sendonly\r
-c=IN IP4 """+LOCAL_HOST+"""\r
 m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""\r
 m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID) + """\r
