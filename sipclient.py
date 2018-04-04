@@ -16,7 +16,7 @@ from multiprocessing import Process
 
 
 if len(sys.argv) < 3:
-    print "usage: sdpclient HOST PORT VOICEBRIDGE(optional) INPUT_VIDEO_PATH(optional)"
+    print "usage: sdpclient HOST PORT VOICEBRIDGE(optional) INPUT_VIDEO_PATH(optional) gst(optional) exib(optional)"
     sys.exit()
 else:
     HOST = sys.argv[1]
@@ -27,6 +27,16 @@ else:
         INPUT_VIDEO_PATH = sys.argv[4] if sys.argv[4] else ""
     else:
         INPUT_VIDEO_PATH = ""
+
+    if(len(sys.argv) > 5):
+        USE_GSTREAMER = True if sys.argv[5] == "gst" else False
+    else:
+        USE_GSTREAMER = False
+
+    if(len(sys.argv) > 6):
+        FAKE_EXIB = True if sys.argv[6] == "exib" else False
+    else:
+        FAKE_EXIB = False
 
 MD5_HASH = hashlib.md5()
 def get_hex_digest(size):
@@ -85,6 +95,7 @@ AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
 #AUDIO_CODEC_NAME = "OPUS/"+str(AUDIO_SAMPLE_RATE)+"/2"
 VIDEO_CODEC_ID = 96
 VIDEO_CODEC_NAME = "H264"
+#VIDEO_CODEC_NAME = "H263-1998"
 VIDEO_ENCODER_NAME = "copy"
 #VIDEO_ENCODER_NAME = "libx264"
 #VIDEO_ENCODER_NAME = "libopenh264"
@@ -249,126 +260,157 @@ def startAudioStream(inputPath,remoteHost, remotePort):
 def startVideoStream(inputPath, remoteHost, remotePort):
 
     global p2
+ 
     
-    # gst_command = [
-    #     GST_PATH,
-    #     "videotestsrc",
-    #     "!",
-    #     "x264enc",
-    #     "option-string=slice-max-size=1024",
-    #     "key-int-max=30",
-    #     "!",
-    #     "rtph264pay",
-    #     "!",
-    #     "udpsink",
-    #     "host=" + str(remoteHost),
-    #     "port="+ str(remotePort)
-    # ]
+    if(USE_GSTREAMER):
+        gst_command = [
+            GST_PATH,
+    	    "rtpbin", "name=rtpbin",
+	
+	    #Video source
+            "filesrc",
+            "location=temer.mp4",# str(inputPath),
+            "!",
+            "qtdemux",
+            "!",
+            "h264parse",
+            "!",
+            "avdec_h264",
+            "!",
+            "videoconvert",
+            "!",
+            "videoscale",
+            "!",
+            "video/x-raw,width=1280,height=720",
+            "!",
+	    "videorate",
+	    "!",
+	    "video/x-raw,framerate=30/1",
+	    "!",
+        
 
-    gst_command = [
-        GST_PATH,
-        "filesrc",
-        "location=bbb.mov",# str(inputPath),
-        "!",
-        "qtdemux",
-        "!",
-        "h264parse",
-        "!",
-        "avdec_h264",
-        "!",
-        "videoconvert",
-        "!",
-        "videoscale",
-        "!",
-        "video/x-raw,width=150,height=150",
-        "!",
-        "x264enc",
-        "option-string=slice-max-size=1024",
-        "key-int-max=30",
-        "!",
-        "rtph264pay",
-        "!",
-        "udpsink",
-        "host=" + str(remoteHost),
-        "port="+ str(remotePort)
-    ]
+	    #Encode
+	    "x264enc",
+   	    "bitrate=300",
+	    "speed-preset=superfast",
+	    "tune=zerolatency",
+	    "key-int-max=30",
+	    "option-string=level=31:slice-max-size=1024",
+	    "!",
+	    "video/x-h264,",
+	    "profile=baseline",
+            "!",
+        
 
-    print "[DEBUG] Calling gst-launch-1.0 with the command line: ", " ".join(gst_command)
-    p2 = subprocess.Popen(gst_command)
+	    #Transmission
+	    "rtph264pay",
+            "!",
+	    "rtpbin.send_rtp_sink_0", "rtpbin.send_rtp_src_0",
+	    "!",
+	    "udpsink", "port="+str(remotePort), "host="+str(remoteHost), "udpsrc", "port="+str(remotePort+1),
+	    "!",
+	    "rtpbin.recv_rtcp_sink_0", "rtpbin.send_rtcp_src_0",
+	    "!",
+	    "udpsink", "port="+str(remotePort+1), "host="+str(remoteHost), "sync=false", "async=false"
+	]
 
+	#Reception
+	gst_reception = [
+            "udpsrc",
+	    "caps=application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H264,payload=(int)96", 
+	    "port="+str(LOCAL_VIDEO_PORT),
+	    "!",
+	    "rtpbin.recv_rtp_sink_1", "rtpbin.",
+	    "!", 
+	    "rtph264depay",
+	    "!",
+	    "decodebin", "!", "videoconvert", "!", "autovideosink",
+#	    "!", "fakesink",
+	    "udpsrc", "port="+str(LOCAL_VIDEO_PORT+1), 
+	    "!", 
+	    "rtpbin.recv_rtcp_sink_1", "rtpbin.send_rtcp_src_1", 
+	    "!",
+	    "udpsink", "port="+str(LOCAL_VIDEO_PORT+1), "host="+str(remoteHost), "sync=false", "async=false" 
 
+        ]
 
-    #CIF
-    #resolutions = ['128x96','176x144','256x192','352x240','352x288','704x480','704x576','1408x1152','528x384']
-    #QVGA
-    #resolutions = ['160x120','320x240','360x240','400x240','640x480']
-    #for r in resolutions:
- #   profiles = [
- #       ('main','1.0'),
- #       ('main','1.3'),
- #       ('main','1.1'),
- #       ('main','1.2'),
- #       ('main','1.3'),
- #       ('main','2.0'),
- #       ('main','2.1'),
- #       ('main','2.2'),
- #       ('main','3.0'),
- #       ('main','3.1'),
- #       ('main','3.2'),
- #       ('main','4.0'),
- #       ('main','4.1'),
- #       ('main','4.2')
- #   ]
- #   profiles=[('baseline','1.3')]
- #   for p in profiles:
- #       FFMPEG_VIDEO_CALL = [
- #           FFMPEG_PATH,
-            #'-ignore_loop','0', #for images
-            #'-loop','1',
- #           '-f','concat',
- #           '-re',
-            #'-r','15',
- #           '-safe','0',
- #           '-i',inputPath,
-            #'-i','/home/mario/bbb-stuff/back.png',
-            #'-i','/home/mario/bbb-stuff/mconf-videoconf-logo.mp4',
-            #'-s',VIDEO_RESOLUTION['hd'], #720x480 made polycom crash
-            #'-filter:v','crop='+VIDEO_RESOLUTION.split("x")[0]+':'+VIDEO_RESOLUTION.split("x")[1]+':0:0',
-            #'-force_key_frames','expr:gte(t,n_forced)',
-            #'-b:v','1024k',
-            #'-maxrate','1024k',
-            #'-bufsize','1024k',
-            #'-g','1', #GOP
-            #'-aspect','16:9',
-            #'-keyint_min','10',
-            #'-q:v','1',
-            #'-crf','40',
-            #'-loglevel','verbose',
-#            '-loglevel','quiet',
-	        #'-qscale','1',
-#            '-vcodec',VIDEO_ENCODER_NAME,
-            #'-profile:v', p[0],
-            #'-vf','drawtext=fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf:text=mario:x='+VIDEO_RESOLUTION.split("x")[0]+'-20:y='+VIDEO_RESOLUTION.split("x")[1]+':fontcolor=white:fontsize=30',
-            #'-level', p[1],
-            #'-preset','ultrafast',
-            #'-movflags','frag_keyframe+empty_moov',
-            #'-x264-params','slice-max-size=1024',
-            #'-ps','1024', #RTP payload size (not needed for h264_mode0)
-            #'-slice_mode','dyn',
-            #'-max_nal_size','1024',
-            #'-allow_skip_frames','true',
-            #'-b:v','100k',
-            #'-r','15',
-#            '-an',
-            #'-rtpflags','h264_mode0',
-#            '-f', 'rtp',
-#            '-payload_type', str(VIDEO_CODEC_ID),
-#            "rtp://"+remoteHost+":"+str(remotePort)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
+	if(FAKE_EXIB):
+            gst_command = gst_command +  gst_reception
 
-#        ]
-#        p2 = subprocess.Popen(FFMPEG_VIDEO_CALL)
-#        print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_VIDEO_CALL)
-        #time.sleep(20)
+        print "[DEBUG] Calling gst-launch-1.0 with the command line: ", " ".join(gst_command)
+        p2 = subprocess.Popen(gst_command)
+
+    else:
+        #CIF
+        resolutions = ['128x96','176x144','256x192','352x240','352x288','704x480','704x576','1408x1152','528x384']
+        #QVGA
+        resolutions = ['160x120','320x240','360x240','400x240','640x480']
+
+        profiles = [
+            ('baseline','1.0'),
+            ('baseline','1.3'),
+            ('baseline','1.1'),
+            ('baseline','1.2'),
+            ('baseline','1.3'),
+            ('baseline','2.0'),
+            ('baseline','2.1'),
+            ('baseline','2.2'),
+            ('baseline','3.0'),
+            ('baseline','3.1'),
+            ('baseline','3.2'),
+            ('baseline','4.0'),
+            ('baseline','4.1'),
+            ('baseline','4.2')
+        ]
+        FFMPEG_VIDEO_CALL = [
+           FFMPEG_PATH,
+           '-ignore_loop','0', #for images
+           '-loop','1',
+           '-f','concat',
+           '-re',
+           '-r','15',
+           '-safe','0',
+           '-i',inputPath,
+           '-i','/home/mario/bbb-stuff/back.png',
+           '-i','/home/mario/bbb-stuff/mconf-videoconf-logo.mp4',
+           '-s',VIDEO_RESOLUTION['hd'], #720x480 made polycom crash
+#           '-filter:v','crop='+VIDEO_RESOLUTION.split("x")[0]+':'+VIDEO_RESOLUTION.split("x")[1]+':0:0',
+           '-force_key_frames','expr:gte(t,n_forced)',
+           '-b:v','1024k',
+           '-maxrate','1024k',
+           '-bufsize','1024k',
+           '-g','1', #GOP
+           '-aspect','16:9',
+           '-keyint_min','10',
+           '-q:v','1',
+           '-crf','40',
+           '-loglevel','verbose',
+           '-loglevel','quiet',
+	   '-qscale','1',
+           '-vcodec',VIDEO_ENCODER_NAME,
+           '-profile:v', 'baseline',
+#           '-vf','drawtext=fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf:text=mario:x='+VIDEO_RESOLUTION.split("x")[0]+'-20:y='+VIDEO_RESOLUTION.split("x")[1]+':fontcolor=white:fontsize=30',
+           '-level', '1.3',
+           '-preset','ultrafast',
+           '-movflags','frag_keyframe+empty_moov',
+           '-x264-params','slice-max-size=1024',
+           '-ps','1024', #RTP payload size (not needed for h264_mode0)
+#           '-slice_mode','dyn',
+#           '-max_nal_size','1024',
+#           '-allow_skip_frames','true',
+           '-b:v','100k',
+           '-r','15',
+           '-an',
+           '-rtpflags','h264_mode0',
+           '-f', 'rtp',
+           '-payload_type', str(VIDEO_CODEC_ID),
+           "rtp://"+remoteHost+":"+str(remotePort)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
+        ]
+        p2 = subprocess.Popen(FFMPEG_VIDEO_CALL)
+        print "[DEBUG] Calling ffmpeg with the command line: ", " ".join(FFMPEG_VIDEO_CALL)
+        
+
+	#time.sleep(20)
         #p2.terminate()
         #p2.wait()
 
