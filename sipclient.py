@@ -16,12 +16,12 @@ from multiprocessing import Process
 
 
 if len(sys.argv) < 3:
-    print "usage: sdpclient HOST PORT VOICEBRIDGE(optional) INPUT_VIDEO_PATH(optional)"
+    print "usage: sipclient HOST PORT PHONE_NUMBER(optional) INPUT_VIDEO_PATH(optional)"
     sys.exit()
 else:
     HOST = sys.argv[1]
     REMOTE_PORT = int(sys.argv[2])
-    VOICE_BRIDGE = sys.argv[3] if sys.argv[3].isdigit() else "72013"
+    PHONE_NUMBER = sys.argv[3] if sys.argv[3].isdigit() else "72013"
 
     if (len(sys.argv) > 4):
         INPUT_VIDEO_PATH = sys.argv[4] if sys.argv[4] else ""
@@ -77,7 +77,7 @@ LOCAL_HOST = get_ip_address(NETWORK_INTERFACE)
 LOCAL_SDP_PORT= random.randint(5065,6000);
 LOCAL_ADDRESS = (LOCAL_HOST, LOCAL_SDP_PORT)
 ADDRESS = (HOST,REMOTE_PORT)
-#VOICE_BRIDGE = "72013"
+#PHONE_NUMBER = "72013"
 #AUDIO_SAMPLE_RATE = 16000
 AUDIO_SAMPLE_RATE = 48000
 #AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
@@ -121,14 +121,14 @@ m=audio """+str(LOCAL_AUDIO_PORT)+""" RTP/AVP """+str(AUDIO_CODEC_ID)+"""\r
 a=rtpmap:"""+str(AUDIO_CODEC_ID)+""" """+str(AUDIO_CODEC_NAME)+"""\r
 m=video """+str(LOCAL_VIDEO_PORT)+""" RTP/AVP """+str(VIDEO_CODEC_ID) + """\r
 a=rtpmap:"""+str(VIDEO_CODEC_ID)+""" """+VIDEO_CODEC_NAME+"""/90000\r
-a=fmtp:"""+str(VIDEO_CODEC_ID)+""" sprop-parameter-sets=Z0LAH9kAUAW7ARAAAAMAEAAAAwMg8YMkgA==,aMuDyyA=; profile-level-id=42C01F"""
+a=fmtp:"""+str(VIDEO_CODEC_ID)+""" profile-level-id=42C01F"""
 
-SDP_HEADER = """INVITE sip:"""+VOICE_BRIDGE+"""@"""+HOST+""" SIP/2.0\r
+SDP_HEADER = """INVITE sip:"""+PHONE_NUMBER+"""@"""+HOST+""" SIP/2.0\r
 Call-ID: """+CALL_ID+"""\r
 CSeq: 1 INVITE\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+ generate_transaction_branch() +"""\r
 Max-Forwards: 70\r
-To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""">\r
+To: <sip:"""+PHONE_NUMBER+"""@"""+HOST+""">\r
 From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+CLIENT_TAG+"""\r
 Contact: \""""+ CALLERNAME +"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";transport=udp>\r
 User-Agent: """+USER_AGENT+"""\r
@@ -178,7 +178,7 @@ Call-ID: """+call_id+"""\r
 CSeq: 1 ACK\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+transaction_branch+"""\r
 From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+client_tag +"""\r
-To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""":"""+str(REMOTE_PORT)+""">;tag="""+ server_tag +"""\r
+To: <sip:"""+PHONE_NUMBER+"""@"""+HOST+""":"""+str(REMOTE_PORT)+""">;tag="""+ server_tag +"""\r
 Max-Forwards: 70\r
 Contact: \""""+ CALLERNAME +"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";transport=udp>\r
 User-Agent: """+USER_AGENT+"""\r
@@ -188,10 +188,10 @@ Content-Length: 0\r\n\r\n"""
 #Bye Message and handler
 def sendByeMessage(client_tag,server_tag,socket):
     BYE_BRANCH = generate_transaction_branch()
-    SDP_MESSAGE_BYE = """BYE sip:"""+VOICE_BRIDGE+"""@"""+HOST+""":"""+str(REMOTE_PORT)+""";transport=udp SIP/2.0\r
+    SDP_MESSAGE_BYE = """BYE sip:"""+PHONE_NUMBER+"""@"""+HOST+""":"""+str(REMOTE_PORT)+""";transport=udp SIP/2.0\r
 Via: SIP/2.0/UDP """+LOCAL_HOST+""":"""+str(LOCAL_SDP_PORT)+""";branch="""+BYE_BRANCH+"""\r
 Max-Forwards: 70\r
-To: <sip:"""+VOICE_BRIDGE+"""@"""+HOST+""">;tag="""+ server_tag +"""\r
+To: <sip:"""+PHONE_NUMBER+"""@"""+HOST+""">;tag="""+ server_tag +"""\r
 From: \""""+CALLERNAME+"""\" <sip:"""+CALLERNAME+"""@"""+LOCAL_HOST+""":"""+ str(LOCAL_SDP_PORT) + """;transport=udp>;tag="""+client_tag +"""\r
 Call-ID: """+CALL_ID+"""\r
 CSeq: 2 BYE\r
@@ -237,6 +237,7 @@ def startAudioStream(inputPath,remoteHost, remotePort):
             '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),
             '-ar',str(AUDIO_SAMPLE_RATE),
             '-af','volume=0.5',
+            '-strict', '-2',
             '-f','rtp',
             '-payload_type',str(AUDIO_CODEC_ID),"rtp://"+remoteHost+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT),
             '-loglevel','quiet'
@@ -274,10 +275,10 @@ def startVideoStream(inputPath, remoteHost, remotePort):
             FFMPEG_PATH,
             #'-ignore_loop','0', #for images
             #'-loop','1',
-            '-f','concat',
             '-re',
-            #'-r','15',
             '-safe','0',
+            '-f','concat',
+            #'-r','15',
             '-i',inputPath,
             #'-i','/home/mario/bbb-stuff/back.png',
             #'-i','/home/mario/bbb-stuff/mconf-videoconf-logo.mp4',
@@ -293,7 +294,6 @@ def startVideoStream(inputPath, remoteHost, remotePort):
             #'-q:v','1',
             #'-crf','40',
             #'-loglevel','verbose',
-            '-loglevel','quiet',
 	        #'-qscale','1',
             '-vcodec',VIDEO_ENCODER_NAME,
             #'-profile:v', p[0],
@@ -312,7 +312,8 @@ def startVideoStream(inputPath, remoteHost, remotePort):
             #'-rtpflags','h264_mode0',
             '-f', 'rtp',
             '-payload_type', str(VIDEO_CODEC_ID),
-            "rtp://"+remoteHost+":"+str(remotePort)+"?localport="+str(LOCAL_VIDEO_PORT)#+"\\&pkt_size=1024"
+            "rtp://"+remoteHost+":"+str(remotePort)+"?localport="+str(LOCAL_VIDEO_PORT), #+"\\&pkt_size=1024"
+            '-loglevel','quiet',
 
         ]
         p2 = subprocess.Popen(FFMPEG_VIDEO_CALL)
