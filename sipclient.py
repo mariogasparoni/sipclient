@@ -61,6 +61,7 @@ def signal_handler(signal, frame):
             terminate_process(p2)
         s.close()
         print 'Exiting...'
+        subprocess.Popen(['stty', 'sane']).wait()
         sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler) #ctrl-c (-2)
