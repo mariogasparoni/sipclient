@@ -214,7 +214,7 @@ def generateConcatInputFile(input_path):
     fullPath = tempPath + '/' + fileName + '_' + fileSuffix
     data = ''
     for i in range(6 * 60 *24):
-        data += 'file ' + input_path + '\n'
+        data += 'file ' + os.path.abspath(input_path) + '\n'
 
     print '[DEBUG] generating concat file ' + fullPath
     with open(fullPath,'w') as concatFile:
