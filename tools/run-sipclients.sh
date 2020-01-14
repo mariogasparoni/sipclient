@@ -9,7 +9,7 @@
 #   VIDEO_FILE1, VIDEO_FILE2, ... is the path to a video file to be used as
 #   input.
 
-SIP_CLIENT_PATH=../sipclient.py
+SIP_CLIENT_PATH=`dirname $0`/../sipclient.py
 SERVER=$1
 ROOM_ID=$2
 NUMBER_OF_INSTANCES=$3
