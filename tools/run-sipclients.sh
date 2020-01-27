@@ -57,7 +57,7 @@ do
       files_counter=$((files_counter+1))
     fi
 
-    (sleep $SLEEP_TIME;$SIP_CLIENT_PATH $SERVER $SERVER_PORT $ROOM_ID $INPUT_FILE) &
+    (sleep $SLEEP_TIME;$SIP_CLIENT_PATH $SERVER $SERVER_PORT $ROOM_ID "sip-client-$i" $INPUT_FILE) &
     SLEEP_TIME=$(($SLEEP_TIME+$DELAY))
 done
 wait

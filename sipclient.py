@@ -16,15 +16,16 @@ from multiprocessing import Process
 
 
 if len(sys.argv) < 3:
-    print "usage: sipclient HOST PORT PHONE_NUMBER(optional) INPUT_VIDEO_PATH(optional)"
+    print "usage: sipclient HOST PORT PHONE_NUMBER(optional) USER_NAME(optional) INPUT_VIDEO_PATH(optional)"
     sys.exit()
 else:
     HOST = sys.argv[1]
     REMOTE_PORT = int(sys.argv[2])
     PHONE_NUMBER = sys.argv[3] if sys.argv[3].isdigit() else "72013"
+    USER_NAME = sys.argv[4] if sys.argv[3].isdigit() else "sip-client-" + str(random.randint(1,1000))
 
-    if (len(sys.argv) > 4):
-        INPUT_VIDEO_PATH = sys.argv[4] if sys.argv[4] else ""
+    if (len(sys.argv) > 5):
+        INPUT_VIDEO_PATH = sys.argv[5] if sys.argv[4] else ""
     else:
         INPUT_VIDEO_PATH = ""
 
@@ -98,7 +99,7 @@ REMOTE_VIDEO_PORT = 0
 LOCAL_AUDIO_PORT = random.randint(7000,17000);
 REMOTE_AUDIO_PORT = 0
 FFMPEG_PATH = "/usr/bin/ffmpeg"
-CALLERNAME = "sip-client" #must be url-encoded
+CALLERNAME = USER_NAME  #must be url-encoded
 #INPUT_VIDEO_PATH = "video.mp4"
 VIDEO_RESOLUTION={
     'qvga':'320x240',
