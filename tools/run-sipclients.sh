@@ -44,7 +44,7 @@ done
 
 files_number=$#;
 files_counter=1;
-
+i=0;
 
 for i in `seq $NUMBER_OF_INSTANCES`
 do
