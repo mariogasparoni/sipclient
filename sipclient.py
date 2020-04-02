@@ -83,7 +83,7 @@ ADDRESS = (HOST,REMOTE_PORT)
 #AUDIO_SAMPLE_RATE = 16000
 AUDIO_SAMPLE_RATE = 48000
 #AUDIO_CODEC_NAME = "G722/"+str(AUDIO_SAMPLE_RATE)
-AUDIO_CODEC_NAME = "OPUS/"+str(AUDIO_SAMPLE_RATE)+"/2"
+AUDIO_CODEC_NAME = "OPUS/48000/2"
 VIDEO_CODEC_ID = 96
 VIDEO_CODEC_NAME = "H264"
 VIDEO_ENCODER_NAME = "copy"
@@ -91,6 +91,7 @@ VIDEO_ENCODER_NAME = "copy"
 #VIDEO_ENCODER_NAME = "libopenh264"
 #AUDIO_CODEC_ID = 9
 AUDIO_CODEC_ID = 98
+AUDIO_ENCODER_NAME = "copy"
 CLIENT_TAG = get_hex_digest(16)
 SERVER_TAG = ""
 CALL_ID = generate_call_id(HOSTNAME)
@@ -230,16 +231,12 @@ def startAudioStream(inputPath,remoteHost, remotePort):
 
     FFMPEG_AUDIO_CALL = [
             FFMPEG_PATH,
-            '-f','concat',
             '-re',
             '-safe','0',
+            '-f','concat',
             '-i' ,inputPath,
             '-vn',
-            '-ac', '2',
-            '-acodec',AUDIO_CODEC_NAME.split("/",1)[0].lower(),
-            '-ar',str(AUDIO_SAMPLE_RATE),
-            '-af','volume=0.5',
-            '-strict', '-2',
+            '-acodec',AUDIO_ENCODER_NAME,
             '-f','rtp',
             '-payload_type',str(AUDIO_CODEC_ID),"rtp://"+remoteHost+":"+str(REMOTE_AUDIO_PORT)+"?localport="+str(LOCAL_AUDIO_PORT),
             '-loglevel','quiet'
